@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Statistical Analysis — PCA & Regression</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3350;
+    --accent: #6c8ef5;
+    --accent2: #a78bfa;
+    --success: #34d399;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --radius: 10px;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ── */
+  .app { display: flex; flex-direction: column; height: 100vh; }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+  header h1 span { color: var(--accent); }
+
+  .badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 2px 10px;
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 0.5px;
+  }
+
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    padding: 16px 0;
+  }
+
+  .sidebar-section { padding: 0 12px 12px; }
+  .sidebar-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 0 8px 8px;
+  }
+
+  .nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 12px;
+    border: none;
+    background: transparent;
+    color: var(--text2);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--font);
+    transition: background 0.15s, color 0.15s;
+    text-align: left;
+  }
+  .nav-btn:hover { background: var(--surface2); color: var(--text); }
+  .nav-btn.active { background: rgba(108,142,245,0.15); color: var(--accent); font-weight: 600; }
+  .nav-btn .icon { font-size: 16px; flex-shrink: 0; }
+
+  .divider { height: 1px; background: var(--border); margin: 8px 12px; }
+
+  /* ── Content area ── */
+  .content { flex: 1; overflow-y: auto; padding: 24px; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: var(--text2);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* ── Upload area ── */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(108,142,245,0.05);
+  }
+  .upload-icon { font-size: 40px; margin-bottom: 12px; }
+  .upload-zone h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .upload-zone p { color: var(--text2); font-size: 13px; }
+  #file-input { display: none; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: var(--font);
+    font-weight: 600;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    background: var(--surface2);
+    padding: 9px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--surface2); }
+  .num { text-align: right; }
+  .sig { color: var(--success); font-weight: 600; }
+  .warn-cell { color: var(--warn); }
+
+  /* ── Form controls ── */
+  .form-group { margin-bottom: 14px; }
+  .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; letter-spacing: 0.3px; }
+  select, input[type="number"] {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family: var(--font);
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  select:focus, input[type="number"]:focus { border-color: var(--accent); }
+
+  .checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 6px;
+  }
+  .cb-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    font-size: 12px;
+  }
+  .cb-item:hover { border-color: var(--accent); background: rgba(108,142,245,0.05); }
+  .cb-item input { accent-color: var(--accent); width: 13px; height: 13px; cursor: pointer; }
+
+  /* ── Chart containers ── */
+  .chart-wrap {
+    position: relative;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 16px;
+    border: 1px solid var(--border);
+  }
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .chart-row { grid-template-columns: 1fr; } }
+
+  /* ── Stats grid ── */
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .stat-label { font-size: 11px; color: var(--text3); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px; }
+  .stat-value { font-size: 22px; font-weight: 700; font-family: var(--mono); color: var(--text); }
+  .stat-value.accent { color: var(--accent); }
+  .stat-value.success { color: var(--success); }
+
+  /* ── Alert ── */
+  .alert {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .alert-error { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
+  .alert-info { background: rgba(108,142,245,0.1); border: 1px solid rgba(108,142,245,0.3); color: var(--accent); }
+  .alert-success { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); color: var(--success); }
+
+  /* ── Tabs (inner) ── */
+  .tab-row { display: flex; gap: 4px; margin-bottom: 18px; }
+  .tab-btn {
+    padding: 6px 16px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: var(--font);
+    font-weight: 600;
+    transition: all 0.15s;
+  }
+  .tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tab-btn:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Page visibility ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── Spinner ── */
+  .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(108,142,245,0.3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text3);
+  }
+  .empty-state .es-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state h3 { font-size: 15px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+
+  .info-row { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 16px; }
+  .info-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 3px 12px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .info-pill strong { color: var(--text); }
+
+  .section-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent2);
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 800px) { .two-col { grid-template-columns: 1fr; } }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text3);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Header -->
+  <header>
+    <div style="font-size:22px">📊</div>
+    <h1>Stats<span>Lab</span></h1>
+    <span class="badge">PCA · OLS</span>
+    <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+      <span id="header-status" style="font-size:12px; color:var(--text3);"></span>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('file-input').click()">⬆ Load CSV</button>
+      <input type="file" id="file-input" accept=".csv,.txt">
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- Sidebar nav -->
+    <nav class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Workspace</div>
+        <button class="nav-btn active" onclick="showPage('upload')" id="nav-upload">
+          <span class="icon">📁</span> Data
+        </button>
+        <button class="nav-btn" onclick="showPage('preview')" id="nav-preview">
+          <span class="icon">🗂</span> Preview
+        </button>
+      </div>
+      <div class="divider"></div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Analysis</div>
+        <button class="nav-btn" onclick="showPage('pca')" id="nav-pca">
+          <span class="icon">🔬</span> PCA
+        </button>
+        <button class="nav-btn" onclick="showPage('regression')" id="nav-regression">
+          <span class="icon">📈</span> Regression
+        </button>
+      </div>
+      <div class="sidebar-footer">Browser-only · No data leaves your device</div>
+    </nav>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- ═══ UPLOAD PAGE ═══ -->
+      <div class="page active" id="page-upload">
+        <div class="card">
+          <div class="card-title">Load Dataset</div>
+          <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+            <div class="upload-icon">📂</div>
+            <h3>Drop a CSV file here</h3>
+            <p>or click to browse · UTF-8, comma or semicolon delimited</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Try a Sample Dataset</div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn btn-secondary" onclick="loadSample('iris')">🌸 Iris (150×5)</button>
+            <button class="btn btn-secondary" onclick="loadSample('mtcars')">🚗 Motor Trend Cars (32×11)</button>
+            <button class="btn btn-secondary" onclick="loadSample('random')">🎲 Random (80×6)</button>
+          </div>
+        </div>
+
+        <div class="card" id="upload-info" style="display:none;">
+          <div class="card-title">Dataset Info</div>
+          <div id="upload-info-body"></div>
+        </div>
+      </div>
+
+      <!-- ═══ PREVIEW PAGE ═══ -->
+      <div class="page" id="page-preview">
+        <div class="card">
+          <div class="card-title">Data Preview</div>
+          <div id="preview-meta" class="info-row"></div>
+          <div id="preview-table"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Column Summary</div>
+          <div id="summary-table"></div>
+        </div>
+      </div>
+
+      <!-- ═══ PCA PAGE ═══ -->
+      <div class="page" id="page-pca">
+        <div class="two-col">
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title">Configuration</div>
+            <div class="form-group">
+              <div class="form-label">Select numeric columns for PCA</div>
+              <div class="checkbox-grid" id="pca-col-select"></div>
+            </div>
+            <div class="form-group">
+              <div class="form-label">Max components to compute</div>
+              <input type="number" id="pca-ncomp" value="5" min="1" max="20">
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <button class="btn btn-primary" onclick="runPCA()">▶ Run PCA</button>
+              <button class="btn btn-secondary" onclick="selectAllPCACols()">Select All</button>
+            </div>
+            <div id="pca-error" style="margin-top:12px;"></div>
+          </div>
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title">Variance Explained</div>
+            <div id="pca-variance-table"><div class="empty-state"><div class="es-icon">🔬</div><h3>Configure and run PCA</h3></div></div>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;" id="pca-results" style="display:none;">
+          <div class="chart-row" style="margin-bottom:20px;">
+            <div class="chart-wrap">
+              <div style="font-size:12px; font-weight:700; color:var(--text2); margin-bottom:10px;">Scree Plot — Variance Explained</div>
+              <canvas id="scree-chart" height="220"></canvas>
+            </div>
+            <div class="chart-wrap">
+              <div style="font-size:12px; font-weight:700; color:var(--text2); margin-bottom:10px;">
+                Scores Plot (PC1 vs PC2)
+                <span id="scores-color-label" style="font-weight:400; color:var(--text3); margin-left:8px;"></span>
+              </div>
+              <canvas id="scores-chart" height="220"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Loadings (Eigenvectors)</div>
+            <div id="loadings-table"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ REGRESSION PAGE ═══ -->
+      <div class="page" id="page-regression">
+        <div class="two-col">
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title">Model Specification</div>
+            <div class="form-group">
+              <div class="form-label">Dependent variable (Y)</div>
+              <select id="reg-y"></select>
+            </div>
+            <div class="form-group">
+              <div class="form-label">Independent variables (X)</div>
+              <div class="checkbox-grid" id="reg-x-select"></div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <button class="btn btn-primary" onclick="runRegression()">▶ Run OLS</button>
+              <button class="btn btn-secondary" onclick="selectAllRegCols()">Select All X</button>
+            </div>
+            <div id="reg-error" style="margin-top:12px;"></div>
+          </div>
+
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title">Model Fit Statistics</div>
+            <div id="reg-fit-stats">
+              <div class="empty-state"><div class="es-icon">📈</div><h3>Configure and run OLS</h3></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;" id="reg-results">
+          <div class="card">
+            <div class="card-title">Coefficient Table</div>
+            <div id="reg-coef-table"></div>
+          </div>
+          <div class="chart-row">
+            <div class="chart-wrap">
+              <div style="font-size:12px; font-weight:700; color:var(--text2); margin-bottom:10px;">Residuals vs Fitted</div>
+              <canvas id="resid-chart" height="240"></canvas>
+            </div>
+            <div class="chart-wrap">
+              <div style="font-size:12px; font-weight:700; color:var(--text2); margin-bottom:10px;">Q-Q Plot of Residuals</div>
+              <canvas id="qq-chart" height="240"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ════════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════════
+let rawData = [];        // array of objects (original CSV)
+let columns = [];        // all column names
+let numericCols = [];    // numeric column names
+let chartScree = null;
+let chartScores = null;
+let chartResid = null;
+let chartQQ = null;
+
+// ════════════════════════════════════════════════════════════════
+//  NAVIGATION
+// ════════════════════════════════════════════════════════════════
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+}
+
+// ════════════════════════════════════════════════════════════════
+//  CSV PARSING
+// ════════════════════════════════════════════════════════════════
+function parseCSV(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
+  if (lines.length < 2) throw new Error('CSV must have a header and at least one data row.');
+
+  // Auto-detect delimiter
+  const sample = lines[0];
+  const delim = (sample.split(';').length > sample.split(',').length) ? ';' : ',';
+
+  function parseLine(line) {
+    const result = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; }
+      else if (c === delim && !inQ) { result.push(cur.trim()); cur = ''; }
+      else { cur += c; }
+    }
+    result.push(cur.trim());
+    return result;
+  }
+
+  const headers = parseLine(lines[0]).map(h => h.replace(/^"|"$/g, '').trim());
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const vals = parseLine(lines[i]);
+    const obj = {};
+    headers.forEach((h, j) => { obj[h] = vals[j] !== undefined ? vals[j].replace(/^"|"$/g, '') : ''; });
+    rows.push(obj);
+  }
+  return { headers, rows };
+}
+
+function detectNumericCols(headers, rows) {
+  return headers.filter(h => {
+    const vals = rows.map(r => r[h]).filter(v => v !== '' && v !== null && v !== undefined);
+    if (vals.length === 0) return false;
+    return vals.every(v => !isNaN(parseFloat(v)) && isFinite(v));
+  });
+}
+
+function loadDataset(text, filename) {
+  const { headers, rows } = parseCSV(text);
+  rawData = rows;
+  columns = headers;
+  numericCols = detectNumericCols(headers, rows);
+
+  // Update UI
+  document.getElementById('header-status').textContent = `${filename || 'dataset'} · ${rows.length} rows × ${headers.length} cols`;
+  showUploadInfo(filename, rows.length, headers.length);
+  buildPreview();
+  buildPCAConfig();
+  buildRegressionConfig();
+  showPage('preview');
+}
+
+function showUploadInfo(filename, nrows, ncols) {
+  const box = document.getElementById('upload-info');
+  box.style.display = 'block';
+  document.getElementById('upload-info-body').innerHTML = `
+    <div class="info-row">
+      <div class="info-pill">📄 <strong>${filename || 'dataset'}</strong></div>
+      <div class="info-pill">Rows: <strong>${nrows}</strong></div>
+      <div class="info-pill">Cols: <strong>${ncols}</strong></div>
+      <div class="info-pill">Numeric: <strong>${numericCols.length}</strong></div>
+    </div>
+    <div class="alert alert-success">✓ Dataset loaded successfully. Navigate to Preview or Analysis tabs.</div>
+  `;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  FILE INPUT
+// ════════════════════════════════════════════════════════════════
+document.getElementById('file-input').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try { loadDataset(ev.target.result, file.name); }
+    catch(err) { showAlert('upload-info-body', err.message, 'error'); }
+  };
+  reader.readAsText(file);
+});
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try { loadDataset(ev.target.result, file.name); }
+    catch(err) { alert('Error: ' + err.message); }
+  };
+  reader.readAsText(file);
+});
+
+// ════════════════════════════════════════════════════════════════
+//  PREVIEW
+// ════════════════════════════════════════════════════════════════
+function buildPreview() {
+  const meta = document.getElementById('preview-meta');
+  meta.innerHTML = `
+    <div class="info-pill">Rows: <strong>${rawData.length}</strong></div>
+    <div class="info-pill">Columns: <strong>${columns.length}</strong></div>
+    <div class="info-pill">Numeric cols: <strong>${numericCols.length}</strong></div>
+  `;
+
+  // Data table (first 100 rows)
+  const maxRows = Math.min(100, rawData.length);
+  let html = '<div class="table-wrap"><table><thead><tr>';
+  columns.forEach(c => { html += `<th>${esc(c)}</th>`; });
+  html += '</tr></thead><tbody>';
+  for (let i = 0; i < maxRows; i++) {
+    html += '<tr>';
+    columns.forEach(c => { html += `<td>${esc(rawData[i][c] ?? '')}</td>`; });
+    html += '</tr>';
+  }
+  html += '</tbody></table></div>';
+  if (rawData.length > 100) html += `<div style="margin-top:8px; font-size:12px; color:var(--text3);">Showing first 100 of ${rawData.length} rows.</div>`;
+  document.getElementById('preview-table').innerHTML = html;
+
+  // Summary table
+  let shtml = '<div class="table-wrap"><table><thead><tr><th>Column</th><th>Type</th><th class="num">Count</th><th class="num">Missing</th><th class="num">Min</th><th class="num">Max</th><th class="num">Mean</th><th class="num">Std Dev</th></tr></thead><tbody>';
+  columns.forEach(c => {
+    const vals = rawData.map(r => r[c]);
+    const missing = vals.filter(v => v === '' || v === null || v === undefined).length;
+    const isNum = numericCols.includes(c);
+    let min = '—', max = '—', mean = '—', std = '—';
+    if (isNum) {
+      const nums = vals.filter(v => v !== '' && !isNaN(parseFloat(v))).map(Number);
+      min = fmtNum(Math.min(...nums));
+      max = fmtNum(Math.max(...nums));
+      const m = nums.reduce((a,b) => a+b,0) / nums.length;
+      mean = fmtNum(m);
+      std = fmtNum(Math.sqrt(nums.reduce((a,b) => a+(b-m)**2,0) / (nums.length-1)));
+    }
+    shtml += `<tr>
+      <td><strong>${esc(c)}</strong></td>
+      <td><span style="color:${isNum ? 'var(--success)' : 'var(--warn)'}">${isNum ? 'numeric' : 'string'}</span></td>
+      <td class="num">${vals.length - missing}</td>
+      <td class="num">${missing > 0 ? `<span class="warn-cell">${missing}</span>` : 0}</td>
+      <td class="num">${min}</td><td class="num">${max}</td><td class="num">${mean}</td><td class="num">${std}</td>
+    </tr>`;
+  });
+  shtml += '</tbody></table></div>';
+  document.getElementById('summary-table').innerHTML = shtml;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  PCA CONFIG
+// ════════════════════════════════════════════════════════════════
+function buildPCAConfig() {
+  const container = document.getElementById('pca-col-select');
+  container.innerHTML = '';
+  numericCols.forEach(c => {
+    const id = 'pca_' + c;
+    container.innerHTML += `<label class="cb-item"><input type="checkbox" id="${id}" value="${esc(c)}" checked> ${esc(c)}</label>`;
+  });
+  document.getElementById('pca-ncomp').max = numericCols.length;
+}
+
+function selectAllPCACols() {
+  document.querySelectorAll('#pca-col-select input').forEach(cb => cb.checked = true);
+}
+
+function getSelectedPCACols() {
+  return [...document.querySelectorAll('#pca-col-select input:checked')].map(cb => cb.value);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  REGRESSION CONFIG
+// ════════════════════════════════════════════════════════════════
+function buildRegressionConfig() {
+  const ysel = document.getElementById('reg-y');
+  ysel.innerHTML = '';
+  numericCols.forEach(c => { ysel.innerHTML += `<option value="${esc(c)}">${esc(c)}</option>`; });
+
+  const container = document.getElementById('reg-x-select');
+  container.innerHTML = '';
+  numericCols.forEach((c, i) => {
+    const id = 'reg_x_' + c;
+    container.innerHTML += `<label class="cb-item"><input type="checkbox" id="${id}" value="${esc(c)}" ${i > 0 ? 'checked' : ''}> ${esc(c)}</label>`;
+  });
+}
+
+function selectAllRegCols() {
+  document.querySelectorAll('#reg-x-select input').forEach(cb => cb.checked = true);
+}
+
+function getSelectedXCols() {
+  return [...document.querySelectorAll('#reg-x-select input:checked')].map(cb => cb.value);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  MATRIX MATH
+// ════════════════════════════════════════════════════════════════
+function matMul(A, B) {
+  const n = A.length, m = B[0].length, k = B.length;
+  const C = Array.from({length:n}, () => new Array(m).fill(0));
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < m; j++)
+      for (let p = 0; p < k; p++)
+        C[i][j] += A[i][p] * B[p][j];
+  return C;
+}
+
+function matTranspose(A) {
+  return A[0].map((_, j) => A.map(row => row[j]));
+}
+
+function matScale(A, s) { return A.map(r => r.map(v => v * s)); }
+
+function matAddVec(A, b) { return A.map((r,i) => r.map((v,j) => v + b[j])); }
+
+// Gaussian elimination with partial pivoting → inverse
+function matInverse(M) {
+  const n = M.length;
+  // Augment with identity
+  const A = M.map((r, i) => {
+    const row = [...r];
+    for (let j = 0; j < n; j++) row.push(j === i ? 1 : 0);
+    return row;
+  });
+
+  for (let col = 0; col < n; col++) {
+    // Find pivot
+    let maxRow = col;
+    for (let row = col+1; row < n; row++)
+      if (Math.abs(A[row][col]) > Math.abs(A[maxRow][col])) maxRow = row;
+    [A[col], A[maxRow]] = [A[maxRow], A[col]];
+
+    const pivot = A[col][col];
+    if (Math.abs(pivot) < 1e-14) throw new Error('Matrix is singular or near-singular. Check for multicollinearity or redundant columns.');
+
+    for (let j = col; j < 2*n; j++) A[col][j] /= pivot;
+    for (let row = 0; row < n; row++) {
+      if (row === col) continue;
+      const f = A[row][col];
+      for (let j = col; j < 2*n; j++) A[row][j] -= f * A[col][j];
+    }
+  }
+  return A.map(r => r.slice(n));
+}
+
+function vecNorm(v) { return Math.sqrt(v.reduce((a,x) => a + x*x, 0)); }
+function vecScale(v, s) { return v.map(x => x * s); }
+function vecSub(a, b) { return a.map((x,i) => x - b[i]); }
+function vecDot(a, b) { return a.reduce((s,x,i) => s + x*b[i], 0); }
+
+// ════════════════════════════════════════════════════════════════
+//  QR DECOMPOSITION (Gram-Schmidt)
+// ════════════════════════════════════════════════════════════════
+// Decomposes n×n matrix A into Q (orthonormal cols) and R (upper triangular)
+function qrDecompose(A) {
+  const n = A.length;
+  const Q = [];
+  const R = Array.from({length:n}, () => new Array(n).fill(0));
+
+  for (let j = 0; j < n; j++) {
+    let v = A.map(r => r[j]);
+    for (let i = 0; i < j; i++) {
+      R[i][j] = vecDot(Q[i], A.map(r => r[j]));
+      v = vecSub(v, vecScale(Q[i], R[i][j]));
+    }
+    R[j][j] = vecNorm(v);
+    if (Math.abs(R[j][j]) < 1e-15) {
+      // Near-zero: use standard basis fallback
+      v = A.map((_, k) => k === j ? 1 : 0);
+      R[j][j] = 1;
+    }
+    Q.push(vecScale(v, 1 / R[j][j]));
+  }
+  // Q has columns as rows — transpose back
+  return { Q: matTranspose(Q), R };
+}
+
+// QR algorithm for symmetric matrix eigendecomposition
+// Returns { values: [], vectors: [] } where vectors are columns
+function eigenSymmetric(S, maxIter = 500) {
+  const n = S.length;
+  // Work on a copy
+  let Ak = S.map(r => [...r]);
+  // Accumulate eigenvectors
+  let V = Array.from({length:n}, (_, i) => Array.from({length:n}, (_, j) => i===j ? 1 : 0));
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    // Wilkinson shift for convergence
+    const mu = wilkinsonShift(Ak);
+    // Shift
+    const Ashift = Ak.map((r,i) => r.map((v,j) => i===j ? v-mu : v));
+    const {Q, R} = qrDecompose(Ashift);
+    Ak = matMul(R, Q);
+    // Unshift
+    for (let i = 0; i < n; i++) Ak[i][i] += mu;
+    V = matMul(V, Q);
+
+    // Check off-diagonal convergence
+    let offDiag = 0;
+    for (let i = 0; i < n; i++)
+      for (let j = 0; j < n; j++)
+        if (i !== j) offDiag += Ak[i][j] ** 2;
+    if (offDiag < 1e-20) break;
+  }
+
+  const values = Ak.map((r,i) => r[i]);
+  // Sort descending by eigenvalue
+  const idx = values.map((v,i) => i).sort((a,b) => values[b] - values[a]);
+  return {
+    values: idx.map(i => values[i]),
+    vectors: idx.map(i => V.map(r => r[i]))  // columns
+  };
+}
+
+function wilkinsonShift(A) {
+  const n = A.length;
+  if (n < 2) return 0;
+  const a = A[n-2][n-2], b = A[n-2][n-1], c = A[n-1][n-1];
+  const delta = (a - c) / 2;
+  const sign = delta >= 0 ? 1 : -1;
+  return c - sign * b*b / (Math.abs(delta) + Math.sqrt(delta*delta + b*b));
+}
+
+// ════════════════════════════════════════════════════════════════
+//  PCA
+// ════════════════════════════════════════════════════════════════
+function standardize(matrix) {
+  // matrix: n×p (rows=observations, cols=variables)
+  const n = matrix.length, p = matrix[0].length;
+  const means = [], stds = [];
+  for (let j = 0; j < p; j++) {
+    const col = matrix.map(r => r[j]);
+    const m = col.reduce((a,b) => a+b,0) / n;
+    const s = Math.sqrt(col.reduce((a,b) => a+(b-m)**2,0) / (n-1));
+    means.push(m);
+    stds.push(s < 1e-14 ? 1 : s);
+  }
+  return {
+    Z: matrix.map(r => r.map((v,j) => (v - means[j]) / stds[j])),
+    means, stds
+  };
+}
+
+function covMatrix(Z) {
+  // Z: n×p standardized
+  const n = Z.length, p = Z[0].length;
+  const C = Array.from({length:p}, () => new Array(p).fill(0));
+  for (let i = 0; i < p; i++)
+    for (let j = i; j < p; j++) {
+      let s = 0;
+      for (let k = 0; k < n; k++) s += Z[k][i] * Z[k][j];
+      C[i][j] = C[j][i] = s / (n-1);
+    }
+  return C;
+}
+
+function runPCA() {
+  clearEl('pca-error');
+  const selCols = getSelectedPCACols();
+  if (selCols.length < 2) return showAlert('pca-error', 'Select at least 2 numeric columns.', 'error');
+  if (rawData.length < 3) return showAlert('pca-error', 'Need at least 3 observations.', 'error');
+
+  // Build data matrix, drop rows with missing values
+  const matrix = [];
+  rawData.forEach(row => {
+    const r = selCols.map(c => parseFloat(row[c]));
+    if (r.every(v => !isNaN(v))) matrix.push(r);
+  });
+  if (matrix.length < 3) return showAlert('pca-error', 'Too many missing values — fewer than 3 complete rows.', 'error');
+
+  const nComp = Math.min(parseInt(document.getElementById('pca-ncomp').value) || 5, selCols.length, matrix.length - 1);
+
+  try {
+    const { Z } = standardize(matrix);
+    const C = covMatrix(Z);
+    const { values, vectors } = eigenSymmetric(C);
+
+    // Keep only nComp
+    const eigVals = values.slice(0, nComp).map(v => Math.max(v, 0));
+    const eigVecs = vectors.slice(0, nComp); // each is p-dim column
+
+    const totalVar = values.reduce((a,b) => a + Math.max(b,0), 0) || 1;
+    const varExp = eigVals.map(v => v / totalVar * 100);
+    const cumVar = varExp.map((_, i) => varExp.slice(0, i+1).reduce((a,b) => a+b, 0));
+
+    // Scores: Z * V (n×p) * (p×nComp)
+    const Vmat = matTranspose(eigVecs); // p × nComp
+    const scores = Z.map(row => eigVecs.map(ev => vecDot(row, ev)));
+
+    renderPCAResults({ selCols, eigVals, eigVecs, varExp, cumVar, scores, nComp, matrix });
+  } catch(err) {
+    showAlert('pca-error', err.message, 'error');
+  }
+}
+
+function renderPCAResults({ selCols, eigVals, eigVecs, varExp, cumVar, scores, nComp }) {
+  // Variance table
+  let vhtml = '<div class="table-wrap"><table><thead><tr><th>PC</th><th class="num">Eigenvalue</th><th class="num">Var Explained (%)</th><th class="num">Cumulative (%)</th></tr></thead><tbody>';
+  for (let i = 0; i < nComp; i++) {
+    vhtml += `<tr><td><strong>PC${i+1}</strong></td>
+      <td class="num">${fmtNum(eigVals[i], 4)}</td>
+      <td class="num">${fmtNum(varExp[i], 2)}</td>
+      <td class="num ${cumVar[i] >= 80 ? 'sig' : ''}">${fmtNum(cumVar[i], 2)}</td>
+    </tr>`;
+  }
+  vhtml += '</tbody></table></div>';
+  document.getElementById('pca-variance-table').innerHTML = vhtml;
+
+  // Scree chart
+  if (chartScree) chartScree.destroy();
+  const screectx = document.getElementById('scree-chart').getContext('2d');
+  chartScree = new Chart(screectx, {
+    data: {
+      labels: eigVals.map((_,i) => `PC${i+1}`),
+      datasets: [
+        {
+          type: 'bar',
+          label: 'Variance Explained (%)',
+          data: varExp.map(v => +v.toFixed(2)),
+          backgroundColor: 'rgba(108,142,245,0.7)',
+          borderColor: 'rgba(108,142,245,1)',
+          borderWidth: 1,
+          yAxisID: 'y',
+        },
+        {
+          type: 'line',
+          label: 'Cumulative (%)',
+          data: cumVar.map(v => +v.toFixed(2)),
+          borderColor: '#a78bfa',
+          backgroundColor: 'transparent',
+          pointBackgroundColor: '#a78bfa',
+          pointRadius: 4,
+          tension: 0.3,
+          yAxisID: 'y',
+        }
+      ]
+    },
+    options: chartOpts({
+      scales: {
+        y: { min: 0, max: 100, title: { display: true, text: '%', color: '#64748b' } }
+      }
+    })
+  });
+
+  // Scores chart
+  if (chartScores) chartScores.destroy();
+  const scoresCtx = document.getElementById('scores-chart').getContext('2d');
+  const s1 = scores.map(r => r[0]);
+  const s2 = scores.map(r => r[1] ?? 0);
+  chartScores = new Chart(scoresCtx, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: 'Observations',
+        data: s1.map((x,i) => ({ x, y: s2[i] })),
+        backgroundColor: 'rgba(108,142,245,0.6)',
+        pointRadius: 5,
+        pointHoverRadius: 7,
+      }]
+    },
+    options: chartOpts({
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: `PC1 (${varExp[0].toFixed(1)}%)`, color: '#94a3b8' } },
+        y: { title: { display: true, text: `PC2 (${(varExp[1]||0).toFixed(1)}%)`, color: '#94a3b8' } },
+      }
+    })
+  });
+
+  // Loadings table
+  let lhtml = '<div class="table-wrap"><table><thead><tr><th>Variable</th>';
+  for (let i = 0; i < nComp; i++) lhtml += `<th class="num">PC${i+1}</th>`;
+  lhtml += '</tr></thead><tbody>';
+  selCols.forEach((col, ci) => {
+    lhtml += `<tr><td><strong>${esc(col)}</strong></td>`;
+    for (let j = 0; j < nComp; j++) {
+      const v = eigVecs[j][ci];
+      const abs = Math.abs(v);
+      const style = abs > 0.5 ? ' style="color:var(--accent); font-weight:700;"' : abs > 0.3 ? ' style="color:var(--text);"' : ' style="color:var(--text3);"';
+      lhtml += `<td class="num"${style}>${fmtNum(v, 4)}</td>`;
+    }
+    lhtml += '</tr>';
+  });
+  lhtml += '</tbody></table></div>';
+  document.getElementById('loadings-table').innerHTML = lhtml;
+
+  document.getElementById('pca-results').style.display = 'block';
+}
+
+// ════════════════════════════════════════════════════════════════
+//  REGRESSION
+// ════════════════════════════════════════════════════════════════
+// Two-tailed p-value via t-distribution approximation (Cornish-Fisher)
+function tPValue(t, df) {
+  // Approximation using incomplete beta function via continued fraction
+  const x = df / (df + t * t);
+  const p = incompleteBeta(x, df/2, 0.5);
+  return p; // two-tailed
+}
+
+// Regularized incomplete beta function via continued fraction (Lentz's algorithm)
+function incompleteBeta(x, a, b) {
+  if (x < 0 || x > 1) return NaN;
+  if (x === 0) return 1;
+  if (x === 1) return 0;
+
+  const lbeta = logGamma(a) + logGamma(b) - logGamma(a+b);
+  const front = Math.exp(Math.log(x)*a + Math.log(1-x)*b - lbeta) / a;
+
+  // Use symmetry relation for better convergence
+  if (x > (a+1)/(a+b+2)) return 1 - incompleteBeta(1-x, b, a);
+
+  // Continued fraction via modified Lentz
+  const TINY = 1e-30, MAXIT = 200, EPS = 3e-7;
+  let h = 1, C = 1, D = 1 - (a+b)*x/(a+1);
+  if (Math.abs(D) < TINY) D = TINY;
+  D = 1/D; h = D;
+  for (let m = 1; m <= MAXIT; m++) {
+    // even step
+    let num = m*(b-m)*x / ((a+2*m-1)*(a+2*m));
+    D = 1 + num*D; if (Math.abs(D) < TINY) D = TINY;
+    C = 1 + num/C; if (Math.abs(C) < TINY) C = TINY;
+    D = 1/D; h *= D*C;
+    // odd step
+    num = -(a+m)*(a+b+m)*x / ((a+2*m)*(a+2*m+1));
+    D = 1 + num*D; if (Math.abs(D) < TINY) D = TINY;
+    C = 1 + num/C; if (Math.abs(C) < TINY) C = TINY;
+    D = 1/D; const delta = D*C; h *= delta;
+    if (Math.abs(delta-1) < EPS) break;
+  }
+  return front * h;
+}
+
+function logGamma(x) {
+  // Lanczos approximation
+  const g = 7;
+  const c = [0.99999999999980993,676.5203681218851,-1259.1392167224028,
+    771.32342877765313,-176.61502916214059,12.507343278686905,
+    -0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+  if (x < 0.5) return Math.log(Math.PI / Math.sin(Math.PI*x)) - logGamma(1-x);
+  x -= 1;
+  let a = c[0];
+  const t = x + g + 0.5;
+  for (let i = 1; i < g+2; i++) a += c[i]/(x+i);
+  return 0.5*Math.log(2*Math.PI) + (x+0.5)*Math.log(t) - t + Math.log(a);
+}
+
+// F-distribution p-value via incomplete beta
+function fPValue(F, d1, d2) {
+  const x = d2 / (d2 + d1 * F);
+  return incompleteBeta(x, d2/2, d1/2);
+}
+
+function runRegression() {
+  clearEl('reg-error');
+  const yCol = document.getElementById('reg-y').value;
+  let xCols = getSelectedXCols().filter(c => c !== yCol);
+  if (xCols.length === 0) return showAlert('reg-error', 'Select at least one independent variable (different from Y).', 'error');
+
+  // Build complete-case data
+  const useCols = [yCol, ...xCols];
+  const rows = rawData.filter(r => useCols.every(c => r[c] !== '' && !isNaN(parseFloat(r[c]))));
+  if (rows.length < xCols.length + 2) return showAlert('reg-error', `Too few complete observations (${rows.length}). Need at least ${xCols.length+2}.`, 'error');
+
+  const n = rows.length;
+  const p = xCols.length;
+
+  const y = rows.map(r => parseFloat(r[yCol]));
+
+  // Design matrix with intercept
+  const X = rows.map(r => [1, ...xCols.map(c => parseFloat(r[c]))]);
+
+  try {
+    const Xt = matTranspose(X);
+    const XtX = matMul(Xt, X);
+    const XtXinv = matInverse(XtX);
+    const Xty = matMul(Xt, y.map(v => [v]));
+    const beta = matMul(XtXinv, Xty).map(r => r[0]);
+
+    // Fitted & residuals
+    const fitted = X.map(row => vecDot(row, beta));
+    const resid = y.map((yi,i) => yi - fitted[i]);
+
+    const yMean = y.reduce((a,b) => a+b,0) / n;
+    const SST = y.reduce((a,yi) => a + (yi-yMean)**2, 0);
+    const SSE = resid.reduce((a,e) => a + e*e, 0);
+    const SSR = SST - SSE;
+    const R2 = SST < 1e-15 ? 0 : SSR / SST;
+    const adjR2 = 1 - (1-R2)*(n-1)/(n-p-1);
+    const MSE = SSE / (n-p-1);
+    const MSR = SSR / p;
+    const Fstat = MSR / MSE;
+    const Fpval = fPValue(Fstat, p, n-p-1);
+
+    // Std errors of coefficients
+    const varBeta = XtXinv.map(r => r.map(v => v*MSE));
+    const se = varBeta.map((r,i) => Math.sqrt(Math.abs(r[i])));
+    const tStats = beta.map((b,i) => b / (se[i] || 1e-15));
+    const pVals = tStats.map(t => tPValue(Math.abs(t), n-p-1));
+
+    renderRegressionResults({
+      yCol, xCols, beta, se, tStats, pVals,
+      R2, adjR2, Fstat, Fpval, n, p,
+      fitted, resid, y, MSE: Math.sqrt(MSE)
+    });
+  } catch(err) {
+    showAlert('reg-error', err.message, 'error');
+  }
+}
+
+function renderRegressionResults({ yCol, xCols, beta, se, tStats, pVals, R2, adjR2, Fstat, Fpval, n, p, fitted, resid, y, MSE }) {
+  // Fit stats
+  document.getElementById('reg-fit-stats').innerHTML = `
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">R²</div><div class="stat-value accent">${R2.toFixed(4)}</div></div>
+      <div class="stat-card"><div class="stat-label">Adj. R²</div><div class="stat-value accent">${adjR2.toFixed(4)}</div></div>
+      <div class="stat-card"><div class="stat-label">F-Statistic</div><div class="stat-value">${fmtNum(Fstat,4)}</div></div>
+      <div class="stat-card"><div class="stat-label">F p-value</div><div class="stat-value ${Fpval < 0.05 ? 'success' : ''}">${fmtPVal(Fpval)}</div></div>
+      <div class="stat-card"><div class="stat-label">RMSE</div><div class="stat-value">${fmtNum(MSE,4)}</div></div>
+      <div class="stat-card"><div class="stat-label">n</div><div class="stat-value">${n}</div></div>
+    </div>
+    <div style="font-size:11px; color:var(--text3);">OLS · dependent: <strong style="color:var(--text)">${esc(yCol)}</strong> · predictors: <strong style="color:var(--text)">${p}</strong></div>
+  `;
+
+  // Coefficient table
+  const names = ['(Intercept)', ...xCols];
+  let chtml = '<div class="table-wrap"><table><thead><tr><th>Variable</th><th class="num">Coefficient</th><th class="num">Std Error</th><th class="num">t-Statistic</th><th class="num">p-Value</th><th>Sig.</th></tr></thead><tbody>';
+  names.forEach((name, i) => {
+    const sig = pVals[i] < 0.001 ? '***' : pVals[i] < 0.01 ? '**' : pVals[i] < 0.05 ? '*' : pVals[i] < 0.1 ? '.' : '';
+    chtml += `<tr>
+      <td><strong>${esc(name)}</strong></td>
+      <td class="num">${fmtNum(beta[i],6)}</td>
+      <td class="num">${fmtNum(se[i],6)}</td>
+      <td class="num">${fmtNum(tStats[i],4)}</td>
+      <td class="num ${pVals[i] < 0.05 ? 'sig' : ''}">${fmtPVal(pVals[i])}</td>
+      <td style="font-family:var(--mono);color:var(--success);font-weight:700;">${sig}</td>
+    </tr>`;
+  });
+  chtml += `</tbody></table></div>
+  <div style="margin-top:8px;font-size:11px;color:var(--text3);">Signif. codes: *** p&lt;0.001 &nbsp;** p&lt;0.01 &nbsp;* p&lt;0.05 &nbsp;. p&lt;0.1</div>`;
+  document.getElementById('reg-coef-table').innerHTML = chtml;
+
+  // Residuals vs fitted
+  if (chartResid) chartResid.destroy();
+  const residCtx = document.getElementById('resid-chart').getContext('2d');
+  chartResid = new Chart(residCtx, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: 'Residuals',
+        data: fitted.map((f,i) => ({ x: f, y: resid[i] })),
+        backgroundColor: 'rgba(108,142,245,0.55)',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      }, {
+        label: 'Zero line',
+        data: [{ x: Math.min(...fitted), y: 0 }, { x: Math.max(...fitted), y: 0 }],
+        type: 'line',
+        borderColor: 'rgba(251,191,36,0.6)',
+        borderDash: [5,4],
+        pointRadius: 0,
+        borderWidth: 1.5,
+      }]
+    },
+    options: chartOpts({
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: 'Fitted values', color: '#94a3b8' } },
+        y: { title: { display: true, text: 'Residuals', color: '#94a3b8' } },
+      }
+    })
+  });
+
+  // Q-Q plot
+  if (chartQQ) chartQQ.destroy();
+  const qqCtx = document.getElementById('qq-chart').getContext('2d');
+  const sortedResid = [...resid].sort((a,b) => a-b);
+  const n2 = sortedResid.length;
+  const qqData = sortedResid.map((r,i) => ({
+    x: normalQuantile((i+0.5)/n2),
+    y: r
+  }));
+  // Reference line
+  const rMean = resid.reduce((a,b)=>a+b,0)/n2;
+  const rStd = Math.sqrt(resid.reduce((a,b)=>a+(b-rMean)**2,0)/(n2-1));
+  const xMin = qqData[0].x, xMax = qqData[n2-1].x;
+  const qqLine = [{ x: xMin, y: rMean + rStd*xMin }, { x: xMax, y: rMean + rStd*xMax }];
+
+  chartQQ = new Chart(qqCtx, {
+    type: 'scatter',
+    data: {
+      datasets: [
+        {
+          label: 'Q-Q',
+          data: qqData,
+          backgroundColor: 'rgba(167,139,250,0.6)',
+          pointRadius: 4,
+        },
+        {
+          label: 'Reference',
+          data: qqLine,
+          type: 'line',
+          borderColor: 'rgba(251,191,36,0.7)',
+          borderDash: [5,4],
+          pointRadius: 0,
+          borderWidth: 1.5,
+        }
+      ]
+    },
+    options: chartOpts({
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: 'Theoretical Quantiles', color: '#94a3b8' } },
+        y: { title: { display: true, text: 'Sample Quantiles', color: '#94a3b8' } },
+      }
+    })
+  });
+}
+
+// Standard normal quantile (probit) via rational approximation
+function normalQuantile(p) {
+  if (p <= 0) return -Infinity;
+  if (p >= 1) return Infinity;
+  const a = [-3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2,
+              1.383577518672690e2, -3.066479806614716e1, 2.506628277459239];
+  const b = [-5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2,
+              6.680131188771972e1, -1.328068155288572e1];
+  const c = [-7.784894002430293e-3, -3.223964580411365e-1, -2.400758277161838,
+              -2.549732539343734, 4.374664141464968, 2.938163982698783];
+  const d = [7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996, 3.754408661907416];
+  const pLow = 0.02425, pHigh = 1-pLow;
+  let q;
+  if (p < pLow) {
+    const t = Math.sqrt(-2*Math.log(p));
+    q = (((((c[0]*t+c[1])*t+c[2])*t+c[3])*t+c[4])*t+c[5]) / ((((d[0]*t+d[1])*t+d[2])*t+d[3])*t+1);
+  } else if (p <= pHigh) {
+    const t = p-0.5, t2 = t*t;
+    q = t*(((((a[0]*t2+a[1])*t2+a[2])*t2+a[3])*t2+a[4])*t2+a[5]) /
+          (((((b[0]*t2+b[1])*t2+b[2])*t2+b[3])*t2+b[4])*t2+1);
+  } else {
+    const t = Math.sqrt(-2*Math.log(1-p));
+    q = -(((((c[0]*t+c[1])*t+c[2])*t+c[3])*t+c[4])*t+c[5]) / ((((d[0]*t+d[1])*t+d[2])*t+d[3])*t+1);
+  }
+  return q;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  CHART DEFAULTS
+// ════════════════════════════════════════════════════════════════
+function chartOpts(overrides = {}) {
+  return {
+    responsive: true,
+    animation: { duration: 400 },
+    plugins: {
+      legend: {
+        labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 },
+        ...(overrides.plugins?.legend || {})
+      },
+      tooltip: {
+        backgroundColor: '#1a1d27',
+        borderColor: '#2e3350',
+        borderWidth: 1,
+        titleColor: '#e2e8f0',
+        bodyColor: '#94a3b8',
+        ...(overrides.plugins?.tooltip || {})
+      },
+      ...(overrides.plugins || {})
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(46,51,80,0.7)' },
+        ticks: { color: '#64748b', font: { size: 11 } },
+        ...(overrides.scales?.x || {})
+      },
+      y: {
+        grid: { color: 'rgba(46,51,80,0.7)' },
+        ticks: { color: '#64748b', font: { size: 11 } },
+        ...(overrides.scales?.y || {})
+      },
+      ...(overrides.scales || {})
+    },
+    ...Object.fromEntries(Object.entries(overrides).filter(([k]) => !['plugins','scales'].includes(k)))
+  };
+}
+
+// ════════════════════════════════════════════════════════════════
+//  SAMPLE DATASETS
+// ════════════════════════════════════════════════════════════════
+function loadSample(name) {
+  let csv = '';
+  if (name === 'iris') {
+    csv = generateIris();
+  } else if (name === 'mtcars') {
+    csv = generateMTCars();
+  } else {
+    csv = generateRandom();
+  }
+  loadDataset(csv, name + '.csv');
+}
+
+function generateIris() {
+  const data = [
+    [5.1,3.5,1.4,0.2,'setosa'],[4.9,3.0,1.4,0.2,'setosa'],[4.7,3.2,1.3,0.2,'setosa'],
+    [4.6,3.1,1.5,0.2,'setosa'],[5.0,3.6,1.4,0.2,'setosa'],[5.4,3.9,1.7,0.4,'setosa'],
+    [4.6,3.4,1.4,0.3,'setosa'],[5.0,3.4,1.5,0.2,'setosa'],[4.4,2.9,1.4,0.2,'setosa'],
+    [4.9,3.1,1.5,0.1,'setosa'],[5.4,3.7,1.5,0.2,'setosa'],[4.8,3.4,1.6,0.2,'setosa'],
+    [4.8,3.0,1.4,0.1,'setosa'],[4.3,3.0,1.1,0.1,'setosa'],[5.8,4.0,1.2,0.2,'setosa'],
+    [5.7,4.4,1.5,0.4,'setosa'],[5.4,3.9,1.3,0.4,'setosa'],[5.1,3.5,1.4,0.3,'setosa'],
+    [5.7,3.8,1.7,0.3,'setosa'],[5.1,3.8,1.5,0.3,'setosa'],[5.4,3.4,1.7,0.2,'setosa'],
+    [5.1,3.7,1.5,0.4,'setosa'],[4.6,3.6,1.0,0.2,'setosa'],[5.1,3.3,1.7,0.5,'setosa'],
+    [4.8,3.4,1.9,0.2,'setosa'],[5.0,3.0,1.6,0.2,'setosa'],[5.0,3.4,1.6,0.4,'setosa'],
+    [5.2,3.5,1.5,0.2,'setosa'],[5.2,3.4,1.4,0.2,'setosa'],[4.7,3.2,1.6,0.2,'setosa'],
+    [4.8,3.1,1.6,0.2,'setosa'],[5.4,3.4,1.5,0.4,'setosa'],[5.2,4.1,1.5,0.1,'setosa'],
+    [5.5,4.2,1.4,0.2,'setosa'],[4.9,3.1,1.5,0.2,'setosa'],[5.0,3.2,1.2,0.2,'setosa'],
+    [5.5,3.5,1.3,0.2,'setosa'],[4.9,3.6,1.4,0.1,'setosa'],[4.4,3.0,1.3,0.2,'setosa'],
+    [5.1,3.4,1.5,0.2,'setosa'],[5.0,3.5,1.3,0.3,'setosa'],[4.5,2.3,1.3,0.3,'setosa'],
+    [4.4,3.2,1.3,0.2,'setosa'],[5.0,3.5,1.6,0.6,'setosa'],[5.1,3.8,1.9,0.4,'setosa'],
+    [4.8,3.0,1.4,0.3,'setosa'],[5.1,3.8,1.6,0.2,'setosa'],[4.6,3.2,1.4,0.2,'setosa'],
+    [5.3,3.7,1.5,0.2,'setosa'],[5.0,3.3,1.4,0.2,'setosa'],
+    [7.0,3.2,4.7,1.4,'versicolor'],[6.4,3.2,4.5,1.5,'versicolor'],[6.9,3.1,4.9,1.5,'versicolor'],
+    [5.5,2.3,4.0,1.3,'versicolor'],[6.5,2.8,4.6,1.5,'versicolor'],[5.7,2.8,4.5,1.3,'versicolor'],
+    [6.3,3.3,4.7,1.6,'versicolor'],[4.9,2.4,3.3,1.0,'versicolor'],[6.6,2.9,4.6,1.3,'versicolor'],
+    [5.2,2.7,3.9,1.4,'versicolor'],[5.0,2.0,3.5,1.0,'versicolor'],[5.9,3.0,4.2,1.5,'versicolor'],
+    [6.0,2.2,4.0,1.0,'versicolor'],[6.1,2.9,4.7,1.4,'versicolor'],[5.6,2.9,3.6,1.3,'versicolor'],
+    [6.7,3.1,4.4,1.4,'versicolor'],[5.6,3.0,4.5,1.5,'versicolor'],[5.8,2.7,4.1,1.0,'versicolor'],
+    [6.2,2.2,4.5,1.5,'versicolor'],[5.6,2.5,3.9,1.1,'versicolor'],[5.9,3.2,4.8,1.8,'versicolor'],
+    [6.1,2.8,4.0,1.3,'versicolor'],[6.3,2.5,4.9,1.5,'versicolor'],[6.1,2.8,4.7,1.2,'versicolor'],
+    [6.4,2.9,4.3,1.3,'versicolor'],[6.6,3.0,4.4,1.4,'versicolor'],[6.8,2.8,4.8,1.4,'versicolor'],
+    [6.7,3.0,5.0,1.7,'versicolor'],[6.0,2.9,4.5,1.5,'versicolor'],[5.7,2.6,3.5,1.0,'versicolor'],
+    [5.5,2.4,3.8,1.1,'versicolor'],[5.5,2.4,3.7,1.0,'versicolor'],[5.8,2.7,3.9,1.2,'versicolor'],
+    [6.0,2.7,5.1,1.6,'versicolor'],[5.4,3.0,4.5,1.5,'versicolor'],[6.0,3.4,4.5,1.6,'versicolor'],
+    [6.7,3.1,4.7,1.5,'versicolor'],[6.3,2.3,4.4,1.3,'versicolor'],[5.6,3.0,4.1,1.3,'versicolor'],
+    [5.5,2.5,4.0,1.3,'versicolor'],[5.5,2.6,4.4,1.2,'versicolor'],[6.1,3.0,4.6,1.4,'versicolor'],
+    [5.8,2.6,4.0,1.2,'versicolor'],[5.0,2.3,3.3,1.0,'versicolor'],[5.6,2.7,4.2,1.3,'versicolor'],
+    [5.7,3.0,4.2,1.2,'versicolor'],[5.7,2.9,4.2,1.3,'versicolor'],[6.2,2.9,4.3,1.3,'versicolor'],
+    [5.1,2.5,3.0,1.1,'versicolor'],[5.7,2.8,4.1,1.3,'versicolor'],
+    [6.3,3.3,6.0,2.5,'virginica'],[5.8,2.7,5.1,1.9,'virginica'],[7.1,3.0,5.9,2.1,'virginica'],
+    [6.3,2.9,5.6,1.8,'virginica'],[6.5,3.0,5.8,2.2,'virginica'],[7.6,3.0,6.6,2.1,'virginica'],
+    [4.9,2.5,4.5,1.7,'virginica'],[7.3,2.9,6.3,1.8,'virginica'],[6.7,2.5,5.8,1.8,'virginica'],
+    [7.2,3.6,6.1,2.5,'virginica'],[6.5,3.2,5.1,2.0,'virginica'],[6.4,2.7,5.3,1.9,'virginica'],
+    [6.8,3.0,5.5,2.1,'virginica'],[5.7,2.5,5.0,2.0,'virginica'],[5.8,2.8,5.1,2.4,'virginica'],
+    [6.4,3.2,5.3,2.3,'virginica'],[6.5,3.0,5.5,1.8,'virginica'],[7.7,3.8,6.7,2.2,'virginica'],
+    [7.7,2.6,6.9,2.3,'virginica'],[6.0,2.2,5.0,1.5,'virginica'],[6.9,3.2,5.7,2.3,'virginica'],
+    [5.6,2.8,4.9,2.0,'virginica'],[7.7,2.8,6.7,2.0,'virginica'],[6.3,2.7,4.9,1.8,'virginica'],
+    [6.7,3.3,5.7,2.1,'virginica'],[7.2,3.2,6.0,1.8,'virginica'],[6.2,2.8,4.8,1.8,'virginica'],
+    [6.1,3.0,4.9,1.8,'virginica'],[6.4,2.8,5.6,2.1,'virginica'],[7.2,3.0,5.8,1.6,'virginica'],
+    [7.4,2.8,6.1,1.9,'virginica'],[7.9,3.8,6.4,2.0,'virginica'],[6.4,2.8,5.6,2.2,'virginica'],
+    [6.3,2.8,5.1,1.5,'virginica'],[6.1,2.6,5.6,1.4,'virginica'],[7.7,3.0,6.1,2.3,'virginica'],
+    [6.3,3.4,5.6,2.4,'virginica'],[6.4,3.1,5.5,1.8,'virginica'],[6.0,3.0,4.8,1.8,'virginica'],
+    [6.9,3.1,5.4,2.1,'virginica'],[6.7,3.1,5.6,2.4,'virginica'],[6.9,3.1,5.1,2.3,'virginica'],
+    [5.8,2.7,5.1,1.9,'virginica'],[6.8,3.2,5.9,2.3,'virginica'],[6.7,3.3,5.7,2.5,'virginica'],
+    [6.7,3.0,5.2,2.3,'virginica'],[6.3,2.5,5.0,1.9,'virginica'],[6.5,3.0,5.2,2.0,'virginica'],
+    [6.2,3.4,5.4,2.3,'virginica'],[5.9,3.0,5.1,1.8,'virginica']
+  ];
+  let csv = 'sepal_length,sepal_width,petal_length,petal_width,species\n';
+  data.forEach(r => csv += r.join(',') + '\n');
+  return csv;
+}
+
+function generateMTCars() {
+  const rows = [
+    ['Mazda RX4',21,6,160,110,3.9,2.62,16.46,0,1,4,4],
+    ['Mazda RX4 Wag',21,6,160,110,3.9,2.875,17.02,0,1,4,4],
+    ['Datsun 710',22.8,4,108,93,3.85,2.32,18.61,1,1,4,1],
+    ['Hornet 4 Drive',21.4,6,258,110,3.08,3.215,19.44,1,0,3,1],
+    ['Hornet Sportabout',18.7,8,360,175,3.15,3.44,17.02,0,0,3,2],
+    ['Valiant',18.1,6,225,105,2.76,3.46,20.22,1,0,3,1],
+    ['Duster 360',14.3,8,360,245,3.21,3.57,15.84,0,0,3,4],
+    ['Merc 240D',24.4,4,146.7,62,3.69,3.19,20,1,0,4,2],
+    ['Merc 230',22.8,4,140.8,95,3.92,3.15,22.9,1,0,4,2],
+    ['Merc 280',19.2,6,167.6,123,3.92,3.44,18.3,1,0,4,4],
+    ['Merc 280C',17.8,6,167.6,123,3.92,3.44,18.9,1,0,4,4],
+    ['Merc 450SE',16.4,8,275.8,180,3.07,4.07,17.4,0,0,3,3],
+    ['Merc 450SL',17.3,8,275.8,180,3.07,3.73,17.6,0,0,3,3],
+    ['Merc 450SLC',15.2,8,275.8,180,3.07,3.78,18,0,0,3,3],
+    ['Cadillac Fleetwood',10.4,8,472,205,2.93,5.25,17.98,0,0,3,4],
+    ['Lincoln Continental',10.4,8,460,215,3,5.424,17.82,0,0,3,4],
+    ['Chrysler Imperial',14.7,8,440,230,3.23,5.345,17.42,0,0,3,4],
+    ['Fiat 128',32.4,4,78.7,66,4.08,2.2,19.47,1,1,4,1],
+    ['Honda Civic',30.4,4,75.7,52,4.93,1.615,18.52,1,1,4,2],
+    ['Toyota Corolla',33.9,4,71.1,65,4.22,1.835,19.9,1,1,4,1],
+    ['Toyota Corona',21.5,4,120.1,97,3.7,2.465,20.01,1,0,3,1],
+    ['Dodge Challenger',15.5,8,318,150,2.76,3.52,16.87,0,0,3,2],
+    ['AMC Javelin',15.2,8,304,150,3.15,3.435,17.3,0,0,3,2],
+    ['Camaro Z28',13.3,8,350,245,3.73,3.84,15.41,0,0,3,4],
+    ['Pontiac Firebird',19.2,8,400,175,3.08,3.845,17.05,0,0,3,2],
+    ['Fiat X1-9',27.3,4,79,66,4.08,1.935,18.9,1,1,4,1],
+    ['Porsche 914-2',26,4,120.3,91,4.43,2.14,16.7,0,1,5,2],
+    ['Lotus Europa',30.4,4,95.1,113,3.77,1.513,16.9,1,1,5,2],
+    ['Ford Pantera L',15.8,8,351,264,4.22,3.17,14.5,0,1,5,4],
+    ['Ferrari Dino',19.7,6,145,175,3.62,2.77,15.5,0,1,5,6],
+    ['Maserati Bora',15,8,301,335,3.54,3.57,14.6,0,1,5,8],
+    ['Volvo 142E',21.4,4,121,109,4.11,2.78,18.6,1,1,4,2]
+  ];
+  let csv = 'car,mpg,cyl,disp,hp,drat,wt,qsec,vs,am,gear,carb\n';
+  rows.forEach(r => csv += r.join(',') + '\n');
+  return csv;
+}
+
+function generateRandom() {
+  const n = 80;
+  let csv = 'x1,x2,x3,x4,x5,y\n';
+  const rng = mulberry32(42);
+  for (let i = 0; i < n; i++) {
+    const x1 = (rng()-0.5)*10;
+    const x2 = (rng()-0.5)*5 + x1*0.4;
+    const x3 = rng()*20;
+    const x4 = (rng()-0.5)*3;
+    const x5 = rng()*100;
+    const y = 2.5 + 1.8*x1 - 0.9*x2 + 0.05*x3 + 3.2*x4 + (rng()-0.5)*4;
+    csv += [x1,x2,x3,x4,x5,y].map(v => v.toFixed(4)).join(',') + '\n';
+  }
+  return csv;
+}
+
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ════════════════════════════════════════════════════════════════
+//  UTILITIES
+// ════════════════════════════════════════════════════════════════
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtNum(v, digits = 4) {
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  if (!isFinite(v)) return v > 0 ? '+∞' : '−∞';
+  return Number(v).toFixed(digits);
+}
+
+function fmtPVal(p) {
+  if (isNaN(p)) return '—';
+  if (p < 0.0001) return '< 0.0001';
+  return p.toFixed(4);
+}
+
+function clearEl(id) { document.getElementById(id).innerHTML = ''; }
+
+function showAlert(targetId, msg, type = 'error') {
+  const icons = { error: '⚠', info: 'ℹ', success: '✓' };
+  document.getElementById(targetId).innerHTML = `
+    <div class="alert alert-${type}">${icons[type]} ${esc(msg)}</div>
+  `;
+}
+</script>
+</body>
+</html>
